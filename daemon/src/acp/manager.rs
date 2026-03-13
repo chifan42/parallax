@@ -179,6 +179,11 @@ impl AgentProcessManager {
                         Ok(c) => c,
                         Err(e) => {
                             tracing::error!("failed to spawn agent process: {e}");
+                            let _ = event_tx.send(AgentEvent::SessionFailed {
+                                session_id: aid.clone(),
+                                error: format!("failed to spawn agent: {e}"),
+                            });
+                            handles_ref.lock().await.remove(&aid);
                             return;
                         }
                     };
@@ -194,7 +199,7 @@ impl AgentProcessManager {
                         let reader = BufReader::new(stderr);
                         let mut lines = reader.lines();
                         while let Ok(Some(line)) = lines.next_line().await {
-                            tracing::debug!("agent {aid_for_stderr} stderr: {line}");
+                            tracing::warn!("agent {aid_for_stderr} stderr: {line}");
                         }
                     });
 
@@ -236,8 +241,13 @@ impl AgentProcessManager {
                     let init_resp = match conn.initialize(init_req).await {
                         Ok(resp) => resp,
                         Err(e) => {
-                            tracing::error!("ACP initialization failed: {e}");
+                            tracing::error!("ACP initialization failed for {aid}: {e}");
+                            let _ = event_tx.send(AgentEvent::SessionFailed {
+                                session_id: aid.clone(),
+                                error: format!("ACP initialization failed: {e}"),
+                            });
                             let _ = child.kill().await;
+                            handles_ref.lock().await.remove(&aid);
                             return;
                         }
                     };
@@ -250,7 +260,12 @@ impl AgentProcessManager {
                             Ok(_) => tracing::info!("authenticated agent {aid} via {}", method.id()),
                             Err(e) => {
                                 tracing::error!("authentication failed for {aid}: {e}");
+                                let _ = event_tx.send(AgentEvent::SessionFailed {
+                                    session_id: aid.clone(),
+                                    error: format!("authentication failed: {e}"),
+                                });
                                 let _ = child.kill().await;
+                                handles_ref.lock().await.remove(&aid);
                                 return;
                             }
                         }

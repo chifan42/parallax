@@ -111,29 +111,30 @@ struct SessionView: View {
             if session.isActive || session.state == "review_required" {
                 Divider().overlay(theme.border)
 
-                HStack(alignment: .bottom, spacing: 8) {
-                    ZStack(alignment: .topLeading) {
-                        TextEditor(text: $promptText)
-                            .font(.system(size: 13))
-                            .foregroundStyle(theme.text)
-                            .scrollContentBackground(.hidden)
-                            .frame(height: 48)
-                            .padding(8)
-                            .background(theme.surface)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(theme.border)
-                            )
-
+                HStack(alignment: .center, spacing: 8) {
+                    ZStack(alignment: .leading) {
                         if promptText.isEmpty {
                             Text("Type a message...")
                                 .font(.system(size: 13))
                                 .foregroundStyle(theme.textTertiary)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 16)
-                                .allowsHitTesting(false)
+                                .padding(.leading, 12)
                         }
+
+                        TextField("", text: $promptText, axis: .vertical)
+                            .font(.system(size: 13))
+                            .foregroundStyle(theme.text)
+                            .textFieldStyle(.plain)
+                            .lineLimit(1...4)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .onSubmit { sendPrompt() }
                     }
+                    .background(theme.bg)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(theme.border)
+                    )
 
                     Button { sendPrompt() } label: {
                         Image(systemName: "arrow.up")

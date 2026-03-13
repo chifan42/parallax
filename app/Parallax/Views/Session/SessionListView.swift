@@ -14,12 +14,20 @@ struct SessionListView: View {
                 // Agent selector
                 if !daemonService.agents.isEmpty {
                     HStack(spacing: 6) {
+                        Text("Agent")
+                            .font(.system(size: 11))
+                            .foregroundStyle(theme.textTertiary)
+
                         ForEach(daemonService.agents) { agent in
                             AgentTab(
                                 name: agent.displayName,
                                 isSelected: selectedAgent == agent.id
                             ) {
-                                selectedAgent = agent.id
+                                if selectedAgent == agent.id {
+                                    selectedAgent = ""
+                                } else {
+                                    selectedAgent = agent.id
+                                }
                             }
                         }
                         Spacer()
@@ -27,37 +35,42 @@ struct SessionListView: View {
                 }
 
                 // Prompt input
-                HStack(alignment: .bottom, spacing: 8) {
-                    ZStack(alignment: .topLeading) {
-                        TextEditor(text: $taskDescription)
-                            .font(.system(size: 13))
-                            .foregroundStyle(theme.text)
-                            .scrollContentBackground(.hidden)
-                            .frame(height: 56)
-                            .padding(8)
-                            .background(theme.surface)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(theme.border)
-                            )
-
+                HStack(alignment: .center, spacing: 8) {
+                    ZStack(alignment: .leading) {
                         if taskDescription.isEmpty {
                             Text("Describe your task...")
                                 .font(.system(size: 13))
                                 .foregroundStyle(theme.textTertiary)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 16)
-                                .allowsHitTesting(false)
+                                .padding(.leading, 12)
                         }
+
+                        TextField("", text: $taskDescription, axis: .vertical)
+                            .font(.system(size: 13))
+                            .foregroundStyle(theme.text)
+                            .textFieldStyle(.plain)
+                            .lineLimit(1...3)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .onSubmit {
+                                if !selectedAgent.isEmpty && !taskDescription.isEmpty {
+                                    startSession()
+                                }
+                            }
                     }
+                    .background(theme.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(theme.border)
+                    )
 
                     Button {
                         startSession()
                     } label: {
                         Image(systemName: "play.fill")
-                            .font(.system(size: 13))
+                            .font(.system(size: 12))
                             .foregroundStyle(.white)
-                            .frame(width: 36, height: 36)
+                            .frame(width: 34, height: 34)
                             .background(selectedAgent.isEmpty || taskDescription.isEmpty
                                 ? theme.textTertiary : theme.accent)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -100,7 +113,9 @@ struct SessionListView: View {
                     Text("No sessions yet")
                         .font(.system(size: 13))
                         .foregroundStyle(theme.textSecondary)
-                    Text("Choose an agent and describe your task above")
+                    Text(selectedAgent.isEmpty
+                        ? "Select an agent above to get started"
+                        : "Describe your task and press play")
                         .font(.system(size: 11))
                         .foregroundStyle(theme.textTertiary)
                 }
@@ -122,11 +137,6 @@ struct SessionListView: View {
             }
         }
         .background(theme.bg)
-        .onAppear {
-            if selectedAgent.isEmpty, let first = daemonService.agents.first {
-                selectedAgent = first.id
-            }
-        }
         .task {
             await daemonService.listSessions(worktreeId: worktreeId)
         }
