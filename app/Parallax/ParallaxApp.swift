@@ -177,6 +177,7 @@ enum ParallaxLauncher {
 struct ContentView: View {
     @EnvironmentObject var daemonService: DaemonService
     @EnvironmentObject var theme: Theme
+    @State private var showTerminal = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -186,21 +187,66 @@ struct ContentView: View {
             Divider()
                 .overlay(theme.border)
 
-            // Main content
-            Group {
-                if let worktree = daemonService.selectedWorktree {
-                    SessionListView(worktreeId: worktree.id)
-                } else {
-                    EmptyStateView()
+            // Main content + terminal
+            VStack(spacing: 0) {
+                Group {
+                    if let worktree = daemonService.selectedWorktree {
+                        SessionListView(worktreeId: worktree.id)
+                    } else {
+                        EmptyStateView()
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                if showTerminal, let worktree = daemonService.selectedWorktree {
+                    Divider().overlay(theme.border)
+                    TerminalView(worktreeId: worktree.id)
+                        .frame(height: 200)
+                        .id(worktree.id)
+                }
+
+                // Bottom bar
+                HStack(spacing: 12) {
+                    Button {
+                        showTerminal.toggle()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "terminal")
+                                .font(.system(size: 10))
+                            Text("Terminal")
+                                .font(.system(size: 10))
+                        }
+                        .foregroundStyle(showTerminal ? theme.accent : theme.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(daemonService.selectedWorktree == nil)
+
+                    Spacer()
+
+                    if daemonService.isConnected {
+                        Circle()
+                            .fill(theme.green)
+                            .frame(width: 6, height: 6)
+                        Text("Connected")
+                            .font(.system(size: 10))
+                            .foregroundStyle(theme.textTertiary)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
+                .background(theme.surface)
+                .overlay(
+                    Rectangle().frame(height: 1).foregroundStyle(theme.border),
+                    alignment: .top
+                )
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(theme.bg)
         .foregroundStyle(theme.text)
         .overlay(alignment: .bottom) {
             if !daemonService.isConnected {
                 ConnectionStatusBar()
+                    .padding(.bottom, 28)
             }
         }
         .task {

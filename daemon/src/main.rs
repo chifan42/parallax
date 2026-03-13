@@ -15,6 +15,7 @@ pub struct AppState {
     pub db: db::Database,
     pub event_tx: broadcast::Sender<ipc::types::Notification>,
     pub agent_manager: Arc<acp::manager::AgentProcessManager>,
+    pub terminal_manager: Arc<domain::terminal::TerminalManager>,
 }
 
 #[tokio::main]
@@ -33,10 +34,13 @@ async fn main() -> Result<()> {
     let (event_tx, _) = broadcast::channel(256);
     let agent_manager = Arc::new(acp::manager::AgentProcessManager::new());
 
+    let terminal_manager = Arc::new(domain::terminal::TerminalManager::new());
+
     let state = Arc::new(AppState {
         db,
         event_tx,
         agent_manager,
+        terminal_manager,
     });
 
     {

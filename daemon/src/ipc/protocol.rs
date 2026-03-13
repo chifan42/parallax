@@ -49,6 +49,10 @@ pub async fn dispatch(state: &Arc<AppState>, req: JsonRpcRequest) -> JsonRpcResp
         // ── Sync ──
         "sync/state" => handle_sync_state(state, id),
 
+        // ── Terminal ──
+        "terminal/exec" => handle_terminal_exec(state, id, req.params).await,
+        "terminal/kill" => handle_terminal_kill(state, id, req.params).await,
+
         // ── Agents ──
         "agent/list" => handle_agent_list(state, id),
 
@@ -656,6 +660,40 @@ fn handle_sync_state(state: &Arc<AppState>, id: Option<Value>) -> JsonRpcRespons
             "agents": agents,
         }),
     )
+}
+
+// ── Terminal handlers ──
+
+async fn handle_terminal_exec(state: &Arc<AppState>, id: Option<Value>, params: Value) -> JsonRpcResponse {
+    let worktree_id = match require_str(&params, "worktree_id") {
+        Ok(v) => v,
+        Err(mut e) => { e.id = id; return e; }
+    };
+    let command = match require_str(&params, "command") {
+        Ok(v) => v,
+        Err(mut e) => { e.id = id; return e; }
+    };
+
+    let wt = match state.db.with_conn(|conn| queries::get_worktree(conn, &worktree_id)) {
+        Ok(Some(w)) => w,
+        Ok(None) => return JsonRpcResponse::error(id, -32000, "worktree not found"),
+        Err(e) => return JsonRpcResponse::error(id, -32000, e.to_string()),
+    };
+
+    match state.terminal_manager.exec(&worktree_id, &wt.path, &command, &state.event_tx).await {
+        Ok(()) => JsonRpcResponse::success(id, json!({"started": true})),
+        Err(e) => JsonRpcResponse::error(id, -32000, e.to_string()),
+    }
+}
+
+async fn handle_terminal_kill(state: &Arc<AppState>, id: Option<Value>, params: Value) -> JsonRpcResponse {
+    let worktree_id = match require_str(&params, "worktree_id") {
+        Ok(v) => v,
+        Err(mut e) => { e.id = id; return e; }
+    };
+
+    state.terminal_manager.kill(&worktree_id).await;
+    JsonRpcResponse::success(id, json!({"ok": true}))
 }
 
 // ── Agent handler ──

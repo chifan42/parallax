@@ -96,6 +96,14 @@ pub enum Notification {
     ProjectUpdated {
         project_id: String,
     },
+    TerminalOutput {
+        worktree_id: String,
+        content: String,
+    },
+    TerminalExit {
+        worktree_id: String,
+        exit_code: i32,
+    },
 }
 
 impl Notification {
@@ -149,6 +157,20 @@ impl Notification {
             Self::ProjectUpdated { project_id } => (
                 "project/updated",
                 serde_json::json!({ "project_id": project_id }),
+            ),
+            Self::TerminalOutput {
+                worktree_id,
+                content,
+            } => (
+                "terminal/output",
+                serde_json::json!({ "worktree_id": worktree_id, "content": content }),
+            ),
+            Self::TerminalExit {
+                worktree_id,
+                exit_code,
+            } => (
+                "terminal/exit",
+                serde_json::json!({ "worktree_id": worktree_id, "exit_code": exit_code }),
             ),
         };
 

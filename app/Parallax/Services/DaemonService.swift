@@ -195,6 +195,19 @@ class DaemonService: ObservableObject {
         let _ = await call("prescript/run", params: ["worktree_id": worktreeId])
     }
 
+    // MARK: - Terminal
+
+    func terminalExec(worktreeId: String, command: String) async {
+        let _ = await call("terminal/exec", params: [
+            "worktree_id": worktreeId,
+            "command": command
+        ])
+    }
+
+    func terminalKill(worktreeId: String) async {
+        let _ = await call("terminal/kill", params: ["worktree_id": worktreeId])
+    }
+
     // MARK: - Agents
 
     func listAgents() async {
@@ -265,6 +278,20 @@ class DaemonService: ObservableObject {
                 userInfo: dict
             )
 
+        case "terminal/output":
+            NotificationCenter.default.post(
+                name: .terminalOutput,
+                object: nil,
+                userInfo: dict
+            )
+
+        case "terminal/exit":
+            NotificationCenter.default.post(
+                name: .terminalExit,
+                object: nil,
+                userInfo: dict
+            )
+
         default:
             break
         }
@@ -279,4 +306,6 @@ extension Notification.Name {
     static let sessionPermissionRequest = Notification.Name("parallax.session.permissionRequest")
     static let prescriptOutput = Notification.Name("parallax.prescript.output")
     static let prescriptComplete = Notification.Name("parallax.prescript.complete")
+    static let terminalOutput = Notification.Name("parallax.terminal.output")
+    static let terminalExit = Notification.Name("parallax.terminal.exit")
 }
