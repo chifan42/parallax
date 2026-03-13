@@ -29,9 +29,11 @@ jobs:
       - name: Build & bundle
         run: ./scripts/bundle-app.sh --release
 
-      - name: Upload Parallax.app
+      - name: Zip app bundle
+        run: cd build && zip -ry Parallax.zip Parallax.app
+
+      - name: Upload Parallax.zip
         uses: actions/upload-artifact@v4
         with:
-          name: Parallax
-          path: build/Parallax.app
-          compression-level: 6
+          name: Parallax.zip
+          path: build/Parallax.zip
