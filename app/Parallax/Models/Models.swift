@@ -81,6 +81,35 @@ struct Session: Identifiable {
     }
 }
 
+struct Round: Identifiable {
+    let id: String
+    let sessionId: String
+    let roundNumber: Int
+    let promptText: String
+    let outputContent: String
+    let stopReason: String?
+    let startedAt: String
+    let completedAt: String?
+
+    init?(from dict: [String: Any]) {
+        guard let id = dict["id"] as? String,
+              let sessionId = dict["session_id"] as? String,
+              let roundNumber = dict["round_number"] as? Int,
+              let promptText = dict["prompt_text"] as? String,
+              let outputContent = dict["output_content"] as? String,
+              let startedAt = dict["started_at"] as? String
+        else { return nil }
+        self.id = id
+        self.sessionId = sessionId
+        self.roundNumber = roundNumber
+        self.promptText = promptText
+        self.outputContent = outputContent
+        self.stopReason = dict["stop_reason"] as? String
+        self.startedAt = startedAt
+        self.completedAt = dict["completed_at"] as? String
+    }
+}
+
 struct AgentConfig: Identifiable {
     let id: String
     let name: String

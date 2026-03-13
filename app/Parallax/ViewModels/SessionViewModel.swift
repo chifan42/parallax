@@ -8,6 +8,9 @@ class SessionViewModel: ObservableObject {
     @Published var permissionRequest: PermissionRequest?
     @Published var prescriptOutput: [String] = []
     @Published var prescriptRunning = false
+    @Published var rounds: [Round] = []
+    @Published var currentRoundId: String?
+    @Published var comments: [Comment] = []
 
     let session: Session
     private weak var daemonService: DaemonService?
@@ -105,5 +108,33 @@ class SessionViewModel: ObservableObject {
     func stop() async {
         await daemonService?.stopSession(sessionId: session.id)
         isStreaming = false
+    }
+
+    func loadRounds() async {
+        guard let service = daemonService else { return }
+        rounds = await service.listRounds(sessionId: session.id)
+        currentRoundId = rounds.last?.id
+    }
+
+    func loadComments() async {
+        guard let service = daemonService, let roundId = currentRoundId else { return }
+        comments = await service.listComments(roundId: roundId)
+    }
+
+    func addComment(roundId: String, quotedText: String, commentText: String) async {
+        guard let service = daemonService else { return }
+        await service.createComment(
+            roundId: roundId,
+            revisionId: "rev-1",
+            startOffset: 0,
+            endOffset: quotedText.count,
+            quotedText: quotedText,
+            commentText: commentText
+        )
+        await loadComments()
+    }
+
+    func rerun(userNotes: String?) async {
+        await daemonService?.rerunSession(sessionId: session.id, userNotes: userNotes)
     }
 }

@@ -38,6 +38,9 @@ pub async fn dispatch(state: &Arc<AppState>, req: JsonRpcRequest) -> JsonRpcResp
         "session/respondPermission" => handle_session_respond_permission(state, id, req.params),
         "session/rerun" => handle_session_rerun(state, id, req.params).await,
 
+        // ── Rounds ──
+        "round/list" => handle_round_list(state, id, req.params),
+
         // ── Comments ──
         "comment/create" => handle_comment_create(state, id, req.params),
         "comment/list" => handle_comment_list(state, id, req.params),
@@ -538,6 +541,20 @@ async fn spawn_agent_and_prompt(
     Ok(())
 }
 
+// ── Round handlers ──
+
+fn handle_round_list(state: &Arc<AppState>, id: Option<Value>, params: Value) -> JsonRpcResponse {
+    let session_id = match require_str(&params, "session_id") {
+        Ok(v) => v,
+        Err(mut e) => { e.id = id; return e; }
+    };
+
+    match state.db.with_conn(|conn| queries::list_rounds(conn, &session_id)) {
+        Ok(rounds) => JsonRpcResponse::success(id, serde_json::to_value(&rounds).unwrap()),
+        Err(e) => JsonRpcResponse::error(id, -32000, e.to_string()),
+    }
+}
+
 // ── Comment handlers ──
 
 fn handle_comment_create(state: &Arc<AppState>, id: Option<Value>, params: Value) -> JsonRpcResponse {
@@ -638,10 +655,20 @@ fn handle_sync_state(state: &Arc<AppState>, id: Option<Value>) -> JsonRpcRespons
     }
 
     let mut sessions_list = Vec::new();
+    let mut rounds_map = serde_json::Map::new();
     for p in &projects {
         let wts = worktree::list_worktrees(state, &p.id).unwrap_or_default();
         for wt in &wts {
             let sessions = session::list_sessions(state, &wt.id).unwrap_or_default();
+            for sess in &sessions {
+                // Include rounds for active or review_required sessions
+                let active_states = ["running", "waiting_input", "review_required", "queued"];
+                if active_states.contains(&sess.state.as_str()) {
+                    if let Ok(rounds) = state.db.with_conn(|conn| queries::list_rounds(conn, &sess.id)) {
+                        rounds_map.insert(sess.id.clone(), serde_json::to_value(&rounds).unwrap());
+                    }
+                }
+            }
             sessions_list.extend(sessions);
         }
     }
@@ -657,6 +684,7 @@ fn handle_sync_state(state: &Arc<AppState>, id: Option<Value>) -> JsonRpcRespons
             "projects": projects,
             "worktrees": worktrees_map,
             "sessions": sessions_list,
+            "rounds": rounds_map,
             "agents": agents,
         }),
     )

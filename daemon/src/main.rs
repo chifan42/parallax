@@ -31,6 +31,25 @@ async fn main() -> Result<()> {
     db.run_migrations()?;
     info!("database initialized");
 
+    // Recovery: mark any sessions stuck in active states as interrupted
+    {
+        let active_states = ["running", "waiting_input", "queued"];
+        let interrupted_count = db.with_conn(|conn| {
+            let mut count = 0i64;
+            for s in &active_states {
+                let n = conn.execute(
+                    "UPDATE sessions SET state = 'interrupted', updated_at = ?1 WHERE state = ?2",
+                    rusqlite::params![chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string(), s],
+                )?;
+                count += n as i64;
+            }
+            Ok::<i64, anyhow::Error>(count)
+        })?;
+        if interrupted_count > 0 {
+            info!("recovery: marked {} active sessions as interrupted", interrupted_count);
+        }
+    }
+
     let (event_tx, _) = broadcast::channel(256);
     let agent_manager = Arc::new(acp::manager::AgentProcessManager::new());
 

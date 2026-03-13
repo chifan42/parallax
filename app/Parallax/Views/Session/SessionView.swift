@@ -7,6 +7,7 @@ struct SessionView: View {
     @StateObject private var viewModel: SessionViewModel
     @State private var promptText = ""
     @State private var autoScroll = true
+    @State private var showingReview = false
 
     init(session: Session) {
         self.session = session
@@ -48,6 +49,25 @@ struct SessionView: View {
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
                         .background(theme.red.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if session.state == "review_required" || session.state == "completed" {
+                    Button {
+                        showingReview = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "doc.text.magnifyingglass")
+                                .font(.system(size: 11))
+                            Text("Review")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundStyle(theme.accent)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(theme.accent.opacity(0.12))
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                     .buttonStyle(.plain)
@@ -153,8 +173,14 @@ struct SessionView: View {
             }
         }
         .background(theme.bg)
+        .sheet(isPresented: $showingReview) {
+            ReviewView(sessionId: session.id, roundOutput: viewModel.outputContent)
+                .environmentObject(daemonService)
+                .environmentObject(theme)
+        }
         .task {
             viewModel.setDaemonService(daemonService)
+            await viewModel.loadRounds()
         }
     }
 

@@ -64,6 +64,10 @@ class DaemonService: ObservableObject {
         if let agentsArray = result["agents"] as? [[String: Any]] {
             agents = agentsArray.compactMap { AgentConfig(from: $0) }
         }
+
+        if let sessionsArray = result["sessions"] as? [[String: Any]] {
+            sessions = sessionsArray.compactMap { Session(from: $0) }
+        }
     }
 
     // MARK: - Projects
@@ -179,6 +183,18 @@ class DaemonService: ObservableObject {
             "quoted_text": quotedText,
             "comment_text": commentText
         ])
+    }
+
+    func listComments(roundId: String) async -> [Comment] {
+        guard let response = await call("comment/list", params: ["round_id": roundId]) else { return [] }
+        guard let array = response.result?.arrayValue as? [[String: Any]] else { return [] }
+        return array.compactMap { Comment(from: $0) }
+    }
+
+    func listRounds(sessionId: String) async -> [Round] {
+        guard let response = await call("round/list", params: ["session_id": sessionId]) else { return [] }
+        guard let array = response.result?.arrayValue as? [[String: Any]] else { return [] }
+        return array.compactMap { Round(from: $0) }
     }
 
     func rerunSession(sessionId: String, userNotes: String?) async {
