@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AddProjectSheet: View {
     @EnvironmentObject var daemonService: DaemonService
+    @EnvironmentObject var theme: Theme
     @Environment(\.dismiss) private var dismiss
     @State private var selectedPath: String = ""
     @State private var isLoading = false
@@ -12,49 +13,49 @@ struct AddProjectSheet: View {
             HStack {
                 Text("Add Repository")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.text)
+                    .foregroundStyle(theme.text)
                 Spacer()
                 Button {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Theme.textTertiary)
+                        .foregroundStyle(theme.textTertiary)
                         .frame(width: 20, height: 20)
-                        .background(Theme.surfaceHover)
+                        .background(theme.surfaceHover)
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
                 .buttonStyle(.plain)
             }
             .padding(16)
 
-            Divider().overlay(Theme.border)
+            Divider().overlay(theme.border)
 
             // Content
             VStack(alignment: .leading, spacing: 12) {
                 Text("Repository path")
                     .font(.system(size: 12))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(theme.textSecondary)
 
                 HStack(spacing: 8) {
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(Theme.bg)
+                            .fill(theme.bg)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 6)
-                                    .stroke(Theme.border)
+                                    .stroke(theme.border)
                             )
                             .frame(height: 32)
 
                         if selectedPath.isEmpty {
                             Text("/path/to/repository")
                                 .font(.system(size: 12, design: .monospaced))
-                                .foregroundStyle(Theme.textTertiary)
+                                .foregroundStyle(theme.textTertiary)
                                 .padding(.horizontal, 10)
                         } else {
                             Text(selectedPath)
                                 .font(.system(size: 12, design: .monospaced))
-                                .foregroundStyle(Theme.text)
+                                .foregroundStyle(theme.text)
                                 .lineLimit(1)
                                 .padding(.horizontal, 10)
                         }
@@ -71,10 +72,10 @@ struct AddProjectSheet: View {
                     } label: {
                         Text("Browse")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(Theme.text)
+                            .foregroundStyle(theme.text)
                             .padding(.horizontal, 12)
                             .frame(height: 32)
-                            .background(Theme.surfaceHover)
+                            .background(theme.surfaceHover)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                     .buttonStyle(.plain)
@@ -84,7 +85,7 @@ struct AddProjectSheet: View {
 
             Spacer()
 
-            Divider().overlay(Theme.border)
+            Divider().overlay(theme.border)
 
             // Actions
             HStack {
@@ -95,10 +96,10 @@ struct AddProjectSheet: View {
                 } label: {
                     Text("Cancel")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Theme.textSecondary)
+                        .foregroundStyle(theme.textSecondary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 6)
-                        .background(Theme.surfaceHover)
+                        .background(theme.surfaceHover)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
@@ -124,7 +125,7 @@ struct AddProjectSheet: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
-                    .background(selectedPath.isEmpty || isLoading ? Theme.textTertiary : Theme.accent)
+                    .background(selectedPath.isEmpty || isLoading ? theme.textTertiary : theme.accent)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
@@ -134,6 +135,6 @@ struct AddProjectSheet: View {
             .padding(16)
         }
         .frame(width: 440, height: 220)
-        .background(Theme.surface)
+        .background(theme.surface)
     }
 }

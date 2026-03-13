@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SessionView: View {
     @EnvironmentObject var daemonService: DaemonService
+    @EnvironmentObject var theme: Theme
     let session: Session
     @StateObject private var viewModel: SessionViewModel
     @State private var promptText = ""
@@ -16,18 +17,17 @@ struct SessionView: View {
         VStack(spacing: 0) {
             // Header
             HStack(spacing: 12) {
-                // Agent icon
                 Image(systemName: "cpu")
                     .font(.system(size: 14))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(theme.accent)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(session.agentType)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.text)
+                        .foregroundStyle(theme.text)
                     Text(session.createdAt.prefix(19).replacingOccurrences(of: "T", with: " "))
                         .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(Theme.textTertiary)
+                        .foregroundStyle(theme.textTertiary)
                 }
 
                 Spacer()
@@ -44,10 +44,10 @@ struct SessionView: View {
                             Text("Stop")
                                 .font(.system(size: 12, weight: .medium))
                         }
-                        .foregroundStyle(Theme.red)
+                        .foregroundStyle(theme.red)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(Theme.red.opacity(0.12))
+                        .background(theme.red.opacity(0.12))
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                     .buttonStyle(.plain)
@@ -55,9 +55,9 @@ struct SessionView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(Theme.surface)
+            .background(theme.surface)
 
-            Divider().overlay(Theme.border)
+            Divider().overlay(theme.border)
 
             // Output area
             ScrollViewReader { proxy in
@@ -68,23 +68,22 @@ struct SessionView: View {
                                 if session.isActive {
                                     ProgressView()
                                         .controlSize(.small)
-                                        .tint(Theme.accent)
+                                        .tint(theme.accent)
                                 }
                                 Text(session.isActive ? "Waiting for output..." : "No output")
                                     .font(.system(size: 13))
-                                    .foregroundStyle(Theme.textTertiary)
+                                    .foregroundStyle(theme.textTertiary)
                             }
                             .padding(16)
                         } else {
                             Text(viewModel.outputContent)
                                 .font(.system(size: 12, design: .monospaced))
-                                .foregroundStyle(Theme.text)
+                                .foregroundStyle(theme.text)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(16)
                                 .textSelection(.enabled)
                         }
 
-                        // Scroll anchor
                         Color.clear
                             .frame(height: 1)
                             .id("bottom")
@@ -98,11 +97,11 @@ struct SessionView: View {
                     }
                 }
             }
-            .background(Theme.bg)
+            .background(theme.bg)
 
             // Permission dialog
             if let request = viewModel.permissionRequest {
-                Divider().overlay(Theme.border)
+                Divider().overlay(theme.border)
                 PermissionDialogView(request: request) { outcome in
                     Task { await viewModel.respondPermission(outcome: outcome) }
                 }
@@ -110,26 +109,26 @@ struct SessionView: View {
 
             // Input area
             if session.isActive || session.state == "review_required" {
-                Divider().overlay(Theme.border)
+                Divider().overlay(theme.border)
 
                 HStack(alignment: .bottom, spacing: 8) {
                     ZStack(alignment: .topLeading) {
                         TextEditor(text: $promptText)
                             .font(.system(size: 13))
-                            .foregroundStyle(Theme.text)
+                            .foregroundStyle(theme.text)
                             .scrollContentBackground(.hidden)
                             .frame(height: 48)
                             .padding(8)
-                            .background(Theme.surface)
+                            .background(theme.surface)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Theme.border)
+                                    .stroke(theme.border)
                             )
 
                         if promptText.isEmpty {
                             Text("Type a message...")
                                 .font(.system(size: 13))
-                                .foregroundStyle(Theme.textTertiary)
+                                .foregroundStyle(theme.textTertiary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 16)
                                 .allowsHitTesting(false)
@@ -141,7 +140,7 @@ struct SessionView: View {
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 32, height: 32)
-                            .background(promptText.isEmpty ? Theme.textTertiary : Theme.accent)
+                            .background(promptText.isEmpty ? theme.textTertiary : theme.accent)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                     .buttonStyle(.plain)
@@ -149,10 +148,10 @@ struct SessionView: View {
                     .keyboardShortcut(.defaultAction)
                 }
                 .padding(12)
-                .background(Theme.surface)
+                .background(theme.surface)
             }
         }
-        .background(Theme.bg)
+        .background(theme.bg)
         .task {
             viewModel.setDaemonService(daemonService)
         }
@@ -168,6 +167,7 @@ struct SessionView: View {
 }
 
 struct PermissionDialogView: View {
+    @EnvironmentObject var theme: Theme
     let request: SessionViewModel.PermissionRequest
     let onRespond: (String) -> Void
 
@@ -175,15 +175,15 @@ struct PermissionDialogView: View {
         HStack(spacing: 12) {
             Image(systemName: "exclamationmark.shield.fill")
                 .font(.system(size: 18))
-                .foregroundStyle(Theme.orange)
+                .foregroundStyle(theme.orange)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(request.toolName)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.text)
+                    .foregroundStyle(theme.text)
                 Text(request.description)
                     .font(.system(size: 11))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(theme.textSecondary)
                     .lineLimit(2)
             }
 
@@ -193,10 +193,10 @@ struct PermissionDialogView: View {
                 Button { onRespond("reject") } label: {
                     Text("Reject")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Theme.red)
+                        .foregroundStyle(theme.red)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(Theme.red.opacity(0.12))
+                        .background(theme.red.opacity(0.12))
                         .clipShape(RoundedRectangle(cornerRadius: 5))
                 }
                 .buttonStyle(.plain)
@@ -204,10 +204,10 @@ struct PermissionDialogView: View {
                 Button { onRespond("allow_once") } label: {
                     Text("Allow")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Theme.green)
+                        .foregroundStyle(theme.green)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(Theme.green.opacity(0.12))
+                        .background(theme.green.opacity(0.12))
                         .clipShape(RoundedRectangle(cornerRadius: 5))
                 }
                 .buttonStyle(.plain)
@@ -215,16 +215,16 @@ struct PermissionDialogView: View {
                 Button { onRespond("allow_always") } label: {
                     Text("Always")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(theme.accent)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(Theme.accent.opacity(0.12))
+                        .background(theme.accent.opacity(0.12))
                         .clipShape(RoundedRectangle(cornerRadius: 5))
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(12)
-        .background(Theme.surface)
+        .background(theme.surface)
     }
 }

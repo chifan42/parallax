@@ -1,10 +1,101 @@
 import SwiftUI
 import AppKit
 
+// MARK: - Theme Palette
+
+struct ThemePalette: Equatable {
+    let id: String
+    let displayName: String
+    let bg: Color
+    let surface: Color
+    let surfaceHover: Color
+    let border: Color
+    let text: Color
+    let textSecondary: Color
+    let textTertiary: Color
+    let accent: Color
+    let green: Color
+    let red: Color
+    let orange: Color
+    let nsBg: NSColor
+
+    static let dark = ThemePalette(
+        id: "dark",
+        displayName: "Dark",
+        bg: Color(red: 0.08, green: 0.08, blue: 0.10),
+        surface: Color(red: 0.11, green: 0.11, blue: 0.14),
+        surfaceHover: Color(red: 0.14, green: 0.14, blue: 0.17),
+        border: Color.white.opacity(0.08),
+        text: Color(red: 0.93, green: 0.93, blue: 0.95),
+        textSecondary: Color(red: 0.55, green: 0.55, blue: 0.60),
+        textTertiary: Color(red: 0.35, green: 0.35, blue: 0.40),
+        accent: Color(red: 0.40, green: 0.56, blue: 1.0),
+        green: Color(red: 0.30, green: 0.78, blue: 0.55),
+        red: Color(red: 0.90, green: 0.35, blue: 0.40),
+        orange: Color(red: 0.95, green: 0.65, blue: 0.25),
+        nsBg: NSColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 1.0)
+    )
+
+    static let solarizedLight = ThemePalette(
+        id: "solarized_light",
+        displayName: "Solarized Light",
+        bg: Color(red: 0.992, green: 0.965, blue: 0.890),
+        surface: Color(red: 0.933, green: 0.910, blue: 0.835),
+        surfaceHover: Color(red: 0.867, green: 0.839, blue: 0.757),
+        border: Color(red: 0.576, green: 0.631, blue: 0.631).opacity(0.3),
+        text: Color(red: 0.027, green: 0.212, blue: 0.259),
+        textSecondary: Color(red: 0.345, green: 0.431, blue: 0.459),
+        textTertiary: Color(red: 0.576, green: 0.631, blue: 0.631),
+        accent: Color(red: 0.149, green: 0.545, blue: 0.824),
+        green: Color(red: 0.522, green: 0.600, blue: 0.000),
+        red: Color(red: 0.863, green: 0.196, blue: 0.184),
+        orange: Color(red: 0.796, green: 0.294, blue: 0.086),
+        nsBg: NSColor(red: 0.992, green: 0.965, blue: 0.890, alpha: 1.0)
+    )
+
+    static let all: [ThemePalette] = [.dark, .solarizedLight]
+}
+
+// MARK: - Theme
+
+class Theme: ObservableObject {
+    @Published private(set) var palette: ThemePalette
+
+    var bg: Color { palette.bg }
+    var surface: Color { palette.surface }
+    var surfaceHover: Color { palette.surfaceHover }
+    var border: Color { palette.border }
+    var text: Color { palette.text }
+    var textSecondary: Color { palette.textSecondary }
+    var textTertiary: Color { palette.textTertiary }
+    var accent: Color { palette.accent }
+    var green: Color { palette.green }
+    var red: Color { palette.red }
+    var orange: Color { palette.orange }
+    var nsBg: NSColor { palette.nsBg }
+
+    var onPaletteChanged: ((ThemePalette) -> Void)?
+
+    init() {
+        let id = UserDefaults.standard.string(forKey: "selectedTheme") ?? "dark"
+        self.palette = ThemePalette.all.first { $0.id == id } ?? .dark
+    }
+
+    func select(_ id: String) {
+        guard let p = ThemePalette.all.first(where: { $0.id == id }) else { return }
+        UserDefaults.standard.set(id, forKey: "selectedTheme")
+        palette = p
+        onPaletteChanged?(p)
+    }
+}
+
+// MARK: - App
+
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
     let daemonService = DaemonService()
+    let theme = Theme()
     var daemonProcess: Process?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -12,6 +103,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let contentView = ContentView()
             .environmentObject(daemonService)
+            .environmentObject(theme)
 
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 750),
@@ -22,10 +114,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.title = "Parallax"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
-        window.backgroundColor = NSColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 1.0)
+        window.backgroundColor = theme.nsBg
         window.center()
         window.contentView = NSHostingView(rootView: contentView)
         window.makeKeyAndOrderFront(nil)
+
+        theme.onPaletteChanged = { [weak self] palette in
+            self?.window.backgroundColor = palette.nsBg
+        }
 
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
@@ -76,28 +172,11 @@ enum ParallaxLauncher {
     }
 }
 
-// MARK: - Theme
-
-enum Theme {
-    static let bg = Color(red: 0.08, green: 0.08, blue: 0.10)
-    static let surface = Color(red: 0.11, green: 0.11, blue: 0.14)
-    static let surfaceHover = Color(red: 0.14, green: 0.14, blue: 0.17)
-    static let border = Color.white.opacity(0.08)
-    static let text = Color(red: 0.93, green: 0.93, blue: 0.95)
-    static let textSecondary = Color(red: 0.55, green: 0.55, blue: 0.60)
-    static let textTertiary = Color(red: 0.35, green: 0.35, blue: 0.40)
-    static let accent = Color(red: 0.40, green: 0.56, blue: 1.0)
-    static let green = Color(red: 0.30, green: 0.78, blue: 0.55)
-    static let red = Color(red: 0.90, green: 0.35, blue: 0.40)
-    static let orange = Color(red: 0.95, green: 0.65, blue: 0.25)
-    static let mono = Font.system(.body, design: .monospaced)
-    static let monoSmall = Font.system(.caption, design: .monospaced)
-}
-
 // MARK: - Content
 
 struct ContentView: View {
     @EnvironmentObject var daemonService: DaemonService
+    @EnvironmentObject var theme: Theme
 
     var body: some View {
         HStack(spacing: 0) {
@@ -105,7 +184,7 @@ struct ContentView: View {
                 .frame(width: 240)
 
             Divider()
-                .overlay(Theme.border)
+                .overlay(theme.border)
 
             // Main content
             Group {
@@ -117,8 +196,8 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(Theme.bg)
-        .foregroundStyle(Theme.text)
+        .background(theme.bg)
+        .foregroundStyle(theme.text)
         .overlay(alignment: .bottom) {
             if !daemonService.isConnected {
                 ConnectionStatusBar()
@@ -131,17 +210,19 @@ struct ContentView: View {
 }
 
 struct EmptyStateView: View {
+    @EnvironmentObject var theme: Theme
+
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "rectangle.split.3x1")
                 .font(.system(size: 40))
-                .foregroundStyle(Theme.textTertiary)
+                .foregroundStyle(theme.textTertiary)
             Text("Select a worktree")
                 .font(.title3)
-                .foregroundStyle(Theme.textSecondary)
+                .foregroundStyle(theme.textSecondary)
             Text("Choose a project and worktree from the sidebar to start working with agents")
                 .font(.caption)
-                .foregroundStyle(Theme.textTertiary)
+                .foregroundStyle(theme.textTertiary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 300)
         }
@@ -149,20 +230,22 @@ struct EmptyStateView: View {
 }
 
 struct ConnectionStatusBar: View {
+    @EnvironmentObject var theme: Theme
+
     var body: some View {
         HStack(spacing: 8) {
             ProgressView()
                 .controlSize(.small)
-                .tint(Theme.accent)
+                .tint(theme.accent)
             Text("Connecting to daemon...")
                 .font(.caption)
-                .foregroundStyle(Theme.textSecondary)
+                .foregroundStyle(theme.textSecondary)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(Theme.surface)
+        .background(theme.surface)
         .overlay(
-            Rectangle().frame(height: 1).foregroundStyle(Theme.border),
+            Rectangle().frame(height: 1).foregroundStyle(theme.border),
             alignment: .top
         )
     }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SidebarView: View {
     @EnvironmentObject var daemonService: DaemonService
+    @EnvironmentObject var theme: Theme
     @State private var showingAddProject = false
     @State private var showingCreateWorktree: Project?
 
@@ -11,16 +12,16 @@ struct SidebarView: View {
             HStack {
                 Text("Parallax")
                     .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Theme.text)
+                    .foregroundStyle(theme.text)
                 Spacer()
                 Button {
                     showingAddProject = true
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Theme.textSecondary)
+                        .foregroundStyle(theme.textSecondary)
                         .frame(width: 24, height: 24)
-                        .background(Theme.surfaceHover)
+                        .background(theme.surfaceHover)
                         .clipShape(RoundedRectangle(cornerRadius: 5))
                 }
                 .buttonStyle(.plain)
@@ -28,7 +29,7 @@ struct SidebarView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
 
-            Divider().overlay(Theme.border)
+            Divider().overlay(theme.border)
 
             // Project list
             ScrollView {
@@ -43,7 +44,7 @@ struct SidebarView: View {
                 .padding(.vertical, 8)
             }
         }
-        .background(Theme.surface)
+        .background(theme.surface)
         .sheet(isPresented: $showingAddProject) {
             AddProjectSheet()
         }
@@ -55,6 +56,7 @@ struct SidebarView: View {
 
 struct ProjectSection: View {
     @EnvironmentObject var daemonService: DaemonService
+    @EnvironmentObject var theme: Theme
     let project: Project
     let onCreateWorktree: () -> Void
     @State private var isExpanded = true
@@ -69,16 +71,16 @@ struct ProjectSection: View {
             HStack(spacing: 8) {
                 Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(Theme.textTertiary)
+                    .foregroundStyle(theme.textTertiary)
                     .frame(width: 12)
 
                 Image(systemName: "folder.fill")
                     .font(.system(size: 11))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(theme.accent)
 
                 Text(project.name)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Theme.text)
+                    .foregroundStyle(theme.text)
                     .lineLimit(1)
 
                 Spacer()
@@ -88,7 +90,7 @@ struct ProjectSection: View {
                 } label: {
                     Image(systemName: "plus.circle")
                         .font(.system(size: 12))
-                        .foregroundStyle(Theme.textTertiary)
+                        .foregroundStyle(theme.textTertiary)
                 }
                 .buttonStyle(.plain)
                 .opacity(0.6)
@@ -115,6 +117,7 @@ struct ProjectSection: View {
 
 struct WorktreeRow: View {
     @EnvironmentObject var daemonService: DaemonService
+    @EnvironmentObject var theme: Theme
     let worktree: Worktree
     let projectId: String
 
@@ -126,16 +129,16 @@ struct WorktreeRow: View {
         HStack(spacing: 8) {
             Image(systemName: "arrow.branch")
                 .font(.system(size: 10))
-                .foregroundStyle(isSelected ? Theme.accent : Theme.textTertiary)
+                .foregroundStyle(isSelected ? theme.accent : theme.textTertiary)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(worktree.name)
                     .font(.system(size: 12))
-                    .foregroundStyle(isSelected ? Theme.text : Theme.textSecondary)
+                    .foregroundStyle(isSelected ? theme.text : theme.textSecondary)
                     .lineLimit(1)
                 Text(worktree.branch)
                     .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(Theme.textTertiary)
+                    .foregroundStyle(theme.textTertiary)
                     .lineLimit(1)
             }
 
@@ -144,7 +147,7 @@ struct WorktreeRow: View {
         .padding(.horizontal, 12)
         .padding(.leading, 20)
         .padding(.vertical, 5)
-        .background(isSelected ? Theme.accent.opacity(0.12) : Color.clear)
+        .background(isSelected ? theme.accent.opacity(0.12) : Color.clear)
         .contentShape(Rectangle())
         .onTapGesture {
             daemonService.selectedWorktree = worktree

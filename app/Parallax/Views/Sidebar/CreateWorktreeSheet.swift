@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CreateWorktreeSheet: View {
     @EnvironmentObject var daemonService: DaemonService
+    @EnvironmentObject var theme: Theme
     @Environment(\.dismiss) private var dismiss
     let project: Project
 
@@ -22,23 +23,23 @@ struct CreateWorktreeSheet: View {
             HStack {
                 Text("Create Worktree")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.text)
+                    .foregroundStyle(theme.text)
                 Spacer()
                 Button {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Theme.textTertiary)
+                        .foregroundStyle(theme.textTertiary)
                         .frame(width: 20, height: 20)
-                        .background(Theme.surfaceHover)
+                        .background(theme.surfaceHover)
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
                 .buttonStyle(.plain)
             }
             .padding(16)
 
-            Divider().overlay(Theme.border)
+            Divider().overlay(theme.border)
 
             // Content
             VStack(alignment: .leading, spacing: 16) {
@@ -46,21 +47,21 @@ struct CreateWorktreeSheet: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Branch name")
                         .font(.system(size: 12))
-                        .foregroundStyle(Theme.textSecondary)
+                        .foregroundStyle(theme.textSecondary)
 
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(Theme.bg)
+                            .fill(theme.bg)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 6)
-                                    .stroke(Theme.border)
+                                    .stroke(theme.border)
                             )
                             .frame(height: 32)
 
                         TextField("", text: $branchName)
                             .textFieldStyle(.plain)
                             .font(.system(size: 12, design: .monospaced))
-                            .foregroundStyle(Theme.text)
+                            .foregroundStyle(theme.text)
                             .padding(.horizontal, 10)
                     }
                 }
@@ -70,14 +71,14 @@ struct CreateWorktreeSheet: View {
                     HStack {
                         Text("Source branch")
                             .font(.system(size: 12))
-                            .foregroundStyle(Theme.textSecondary)
+                            .foregroundStyle(theme.textSecondary)
                         if !sourceBranch.isEmpty {
                             Text(sourceBranch)
                                 .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(Theme.accent)
+                                .foregroundStyle(theme.accent)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Theme.accent.opacity(0.12))
+                                .background(theme.accent.opacity(0.12))
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
                         }
                     }
@@ -85,22 +86,22 @@ struct CreateWorktreeSheet: View {
                     // Search
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(Theme.bg)
+                            .fill(theme.bg)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 6)
-                                    .stroke(Theme.border)
+                                    .stroke(theme.border)
                             )
                             .frame(height: 32)
 
                         HStack(spacing: 6) {
                             Image(systemName: "magnifyingglass")
                                 .font(.system(size: 11))
-                                .foregroundStyle(Theme.textTertiary)
+                                .foregroundStyle(theme.textTertiary)
 
                             TextField("", text: $branchSearch)
                                 .textFieldStyle(.plain)
                                 .font(.system(size: 12, design: .monospaced))
-                                .foregroundStyle(Theme.text)
+                                .foregroundStyle(theme.text)
                                 .onChange(of: branchSearch) { _, newValue in
                                     if branches.contains(newValue) {
                                         sourceBranch = newValue
@@ -117,21 +118,21 @@ struct CreateWorktreeSheet: View {
                                 HStack(spacing: 8) {
                                     Image(systemName: "arrow.branch")
                                         .font(.system(size: 10))
-                                        .foregroundStyle(branch == sourceBranch ? Theme.accent : Theme.textTertiary)
+                                        .foregroundStyle(branch == sourceBranch ? theme.accent : theme.textTertiary)
                                     Text(branch)
                                         .font(.system(size: 12, design: .monospaced))
-                                        .foregroundStyle(branch == sourceBranch ? Theme.text : Theme.textSecondary)
+                                        .foregroundStyle(branch == sourceBranch ? theme.text : theme.textSecondary)
                                         .lineLimit(1)
                                     Spacer()
                                     if branch == sourceBranch {
                                         Image(systemName: "checkmark")
                                             .font(.system(size: 10, weight: .semibold))
-                                            .foregroundStyle(Theme.accent)
+                                            .foregroundStyle(theme.accent)
                                     }
                                 }
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
-                                .background(branch == sourceBranch ? Theme.accent.opacity(0.08) : Color.clear)
+                                .background(branch == sourceBranch ? theme.accent.opacity(0.08) : Color.clear)
                                 .contentShape(Rectangle())
                                 .onTapGesture {
                                     sourceBranch = branch
@@ -141,17 +142,17 @@ struct CreateWorktreeSheet: View {
                         }
                     }
                     .frame(height: 140)
-                    .background(Theme.bg)
+                    .background(theme.bg)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
-                            .stroke(Theme.border)
+                            .stroke(theme.border)
                     )
                 }
             }
             .padding(16)
 
-            Divider().overlay(Theme.border)
+            Divider().overlay(theme.border)
 
             // Actions
             HStack {
@@ -162,10 +163,10 @@ struct CreateWorktreeSheet: View {
                 } label: {
                     Text("Cancel")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Theme.textSecondary)
+                        .foregroundStyle(theme.textSecondary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 6)
-                        .background(Theme.surfaceHover)
+                        .background(theme.surfaceHover)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
@@ -196,7 +197,7 @@ struct CreateWorktreeSheet: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
                     .background(branchName.isEmpty || sourceBranch.isEmpty || isLoading
-                        ? Theme.textTertiary : Theme.accent)
+                        ? theme.textTertiary : theme.accent)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
@@ -206,7 +207,7 @@ struct CreateWorktreeSheet: View {
             .padding(16)
         }
         .frame(width: 440, height: 440)
-        .background(Theme.surface)
+        .background(theme.surface)
         .task {
             branches = await daemonService.listBranches(projectId: project.id)
             if let defaultBranch = project.defaultBranch ?? branches.first {

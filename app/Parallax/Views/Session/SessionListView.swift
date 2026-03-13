@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SessionListView: View {
     @EnvironmentObject var daemonService: DaemonService
+    @EnvironmentObject var theme: Theme
     let worktreeId: String
     @State private var selectedAgent = ""
     @State private var taskDescription = ""
@@ -30,20 +31,20 @@ struct SessionListView: View {
                     ZStack(alignment: .topLeading) {
                         TextEditor(text: $taskDescription)
                             .font(.system(size: 13))
-                            .foregroundStyle(Theme.text)
+                            .foregroundStyle(theme.text)
                             .scrollContentBackground(.hidden)
                             .frame(height: 56)
                             .padding(8)
-                            .background(Theme.surface)
+                            .background(theme.surface)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Theme.border)
+                                    .stroke(theme.border)
                             )
 
                         if taskDescription.isEmpty {
                             Text("Describe your task...")
                                 .font(.system(size: 13))
-                                .foregroundStyle(Theme.textTertiary)
+                                .foregroundStyle(theme.textTertiary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 16)
                                 .allowsHitTesting(false)
@@ -58,7 +59,7 @@ struct SessionListView: View {
                             .foregroundStyle(.white)
                             .frame(width: 36, height: 36)
                             .background(selectedAgent.isEmpty || taskDescription.isEmpty
-                                ? Theme.textTertiary : Theme.accent)
+                                ? theme.textTertiary : theme.accent)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                     .buttonStyle(.plain)
@@ -67,26 +68,26 @@ struct SessionListView: View {
             }
             .padding(16)
 
-            Divider().overlay(Theme.border)
+            Divider().overlay(theme.border)
 
             // Worktree header
             if let wt = daemonService.selectedWorktree {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.branch")
                         .font(.system(size: 12))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(theme.accent)
                     Text(wt.branch)
                         .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(Theme.textSecondary)
+                        .foregroundStyle(theme.textSecondary)
                     Spacer()
                     Text("\(filteredSessions.count) sessions")
                         .font(.system(size: 11))
-                        .foregroundStyle(Theme.textTertiary)
+                        .foregroundStyle(theme.textTertiary)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
 
-                Divider().overlay(Theme.border)
+                Divider().overlay(theme.border)
             }
 
             // Session list
@@ -95,13 +96,13 @@ struct SessionListView: View {
                 VStack(spacing: 8) {
                     Image(systemName: "bubble.left.and.text.bubble.right")
                         .font(.system(size: 28))
-                        .foregroundStyle(Theme.textTertiary)
+                        .foregroundStyle(theme.textTertiary)
                     Text("No sessions yet")
                         .font(.system(size: 13))
-                        .foregroundStyle(Theme.textSecondary)
+                        .foregroundStyle(theme.textSecondary)
                     Text("Choose an agent and describe your task above")
                         .font(.system(size: 11))
-                        .foregroundStyle(Theme.textTertiary)
+                        .foregroundStyle(theme.textTertiary)
                 }
                 Spacer()
             } else {
@@ -120,7 +121,7 @@ struct SessionListView: View {
                 }
             }
         }
-        .background(Theme.bg)
+        .background(theme.bg)
         .onAppear {
             if selectedAgent.isEmpty, let first = daemonService.agents.first {
                 selectedAgent = first.id
@@ -158,6 +159,7 @@ struct SessionListView: View {
 // MARK: - Components
 
 struct AgentTab: View {
+    @EnvironmentObject var theme: Theme
     let name: String
     let isSelected: Bool
     let action: () -> Void
@@ -166,13 +168,13 @@ struct AgentTab: View {
         Button(action: action) {
             Text(name)
                 .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Theme.text : Theme.textSecondary)
+                .foregroundStyle(isSelected ? theme.text : theme.textSecondary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(isSelected ? Theme.accent.opacity(0.15) : Theme.surface)
+                .background(isSelected ? theme.accent.opacity(0.15) : theme.surface)
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)
-                        .stroke(isSelected ? Theme.accent.opacity(0.4) : Theme.border)
+                        .stroke(isSelected ? theme.accent.opacity(0.4) : theme.border)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 6))
         }
@@ -181,6 +183,7 @@ struct AgentTab: View {
 }
 
 struct SessionCard: View {
+    @EnvironmentObject var theme: Theme
     let session: Session
 
     var body: some View {
@@ -194,34 +197,35 @@ struct SessionCard: View {
                 HStack {
                     Text(session.agentType)
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Theme.text)
+                        .foregroundStyle(theme.text)
                     Spacer()
                     SessionStateBadge(state: session.state)
                 }
 
                 Text(session.createdAt.prefix(19).replacingOccurrences(of: "T", with: " "))
                     .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(Theme.textTertiary)
+                    .foregroundStyle(theme.textTertiary)
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(Theme.surface)
+        .background(theme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private var statusColor: Color {
         switch session.state {
-        case "running": return Theme.accent
-        case "completed", "review_required": return Theme.green
-        case "failed": return Theme.red
-        case "waiting_input": return Theme.orange
-        default: return Theme.textTertiary
+        case "running": return theme.accent
+        case "completed", "review_required": return theme.green
+        case "failed": return theme.red
+        case "waiting_input": return theme.orange
+        default: return theme.textTertiary
         }
     }
 }
 
 struct SessionStateBadge: View {
+    @EnvironmentObject var theme: Theme
     let state: String
 
     var body: some View {
@@ -236,21 +240,21 @@ struct SessionStateBadge: View {
 
     private var backgroundColor: Color {
         switch state {
-        case "running": return Theme.accent.opacity(0.15)
-        case "completed", "review_required": return Theme.green.opacity(0.15)
-        case "failed": return Theme.red.opacity(0.15)
-        case "waiting_input": return Theme.orange.opacity(0.15)
-        default: return Theme.textTertiary.opacity(0.15)
+        case "running": return theme.accent.opacity(0.15)
+        case "completed", "review_required": return theme.green.opacity(0.15)
+        case "failed": return theme.red.opacity(0.15)
+        case "waiting_input": return theme.orange.opacity(0.15)
+        default: return theme.textTertiary.opacity(0.15)
         }
     }
 
     private var foregroundColor: Color {
         switch state {
-        case "running": return Theme.accent
-        case "completed", "review_required": return Theme.green
-        case "failed": return Theme.red
-        case "waiting_input": return Theme.orange
-        default: return Theme.textTertiary
+        case "running": return theme.accent
+        case "completed", "review_required": return theme.green
+        case "failed": return theme.red
+        case "waiting_input": return theme.orange
+        default: return theme.textTertiary
         }
     }
 }
