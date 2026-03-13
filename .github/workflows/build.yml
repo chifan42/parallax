@@ -29,21 +29,9 @@ jobs:
       - name: Build & bundle
         run: ./scripts/bundle-app.sh --release
 
-      - name: Create DMG
-        run: |
-          hdiutil create -volname "Parallax" \
-            -srcfolder build/Parallax.app \
-            -ov -format UDZO \
-            build/Parallax.dmg
-
       - name: Upload Parallax.app
         uses: actions/upload-artifact@v4
         with:
-          name: Parallax.app
+          name: Parallax
           path: build/Parallax.app
-
-      - name: Upload DMG
-        uses: actions/upload-artifact@v4
-        with:
-          name: Parallax.dmg
-          path: build/Parallax.dmg
+          compression-level: 6
