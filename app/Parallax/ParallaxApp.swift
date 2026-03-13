@@ -1,14 +1,42 @@
 import SwiftUI
+import AppKit
+
+@MainActor
+class AppDelegate: NSObject, NSApplicationDelegate {
+    var window: NSWindow!
+    let daemonService = DaemonService()
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        let contentView = ContentView()
+            .environmentObject(daemonService)
+
+        window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Parallax"
+        window.center()
+        window.contentView = NSHostingView(rootView: contentView)
+        window.makeKeyAndOrderFront(nil)
+
+        NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
+    }
+}
 
 @main
-struct ParallaxApp: App {
-    @StateObject private var daemonService = DaemonService()
-
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-                .environmentObject(daemonService)
-        }
+enum ParallaxLauncher {
+    static func main() {
+        let app = NSApplication.shared
+        let delegate = AppDelegate()
+        app.delegate = delegate
+        app.setActivationPolicy(.regular)
+        app.run()
     }
 }
 
