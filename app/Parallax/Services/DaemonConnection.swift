@@ -1,13 +1,20 @@
 import Foundation
 
 /// Low-level Unix socket connection with NDJSON framing
-actor DaemonConnection {
-    private var inputStream: InputStream?
-    private var outputStream: OutputStream?
-    private var buffer = Data()
-    private var isOpen = false
+/// Uses a background read loop to dispatch responses and notifications
+class DaemonConnection: @unchecked Sendable {
+    private var fileDescriptor: Int32 = -1
+    private var readFD: Int32 = -1
+    private var writeFD: Int32 = -1
 
     private let socketPath: String
+    private var isOpen = false
+
+    // Pending request continuations keyed by JSON-RPC id string
+    private let lock = NSLock()
+    private var pending: [String: CheckedContinuation<JsonRpcResponse, Error>] = [:]
+    private var notificationHandler: ((JsonRpcNotification) -> Void)?
+    private var readTask: Task<Void, Never>?
 
     init() {
         let uid = getuid()
@@ -15,8 +22,8 @@ actor DaemonConnection {
     }
 
     func connect() async throws {
-        let socket = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard socket >= 0 else {
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else {
             throw DaemonError.connectionFailed("Failed to create socket")
         }
 
@@ -24,7 +31,7 @@ actor DaemonConnection {
         addr.sun_family = sa_family_t(AF_UNIX)
         let pathBytes = socketPath.utf8CString
         withUnsafeMutablePointer(to: &addr.sun_path) { ptr in
-            let bound = ptr.withMemoryRebound(to: CChar.self, capacity: 104) { dest in
+            _ = ptr.withMemoryRebound(to: CChar.self, capacity: 104) { dest in
                 pathBytes.withUnsafeBufferPointer { src in
                     let count = min(src.count, 104)
                     dest.update(from: src.baseAddress!, count: count)
@@ -35,108 +42,144 @@ actor DaemonConnection {
 
         let result = withUnsafePointer(to: &addr) { ptr in
             ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
-                Foundation.connect(socket, sockPtr, socklen_t(MemoryLayout<sockaddr_un>.size))
+                Foundation.connect(fd, sockPtr, socklen_t(MemoryLayout<sockaddr_un>.size))
             }
         }
 
         guard result == 0 else {
-            close(socket)
+            close(fd)
             throw DaemonError.connectionFailed("Failed to connect: \(String(cString: strerror(errno)))")
         }
 
-        // Create streams from file descriptor
-        var readStream: Unmanaged<CFReadStream>?
-        var writeStream: Unmanaged<CFWriteStream>?
-        CFStreamCreatePairWithSocket(kCFAllocatorDefault, Int32(socket), &readStream, &writeStream)
+        self.fileDescriptor = fd
+        // Duplicate fd so read and write don't interfere
+        self.readFD = dup(fd)
+        self.writeFD = fd
+        self.isOpen = true
 
-        guard let input = readStream?.takeRetainedValue() as InputStream?,
-              let output = writeStream?.takeRetainedValue() as OutputStream? else {
-            close(socket)
-            throw DaemonError.connectionFailed("Failed to create streams")
-        }
-
-        self.inputStream = input
-        self.outputStream = output
-
-        input.open()
-        output.open()
-        isOpen = true
+        // Start background read loop
+        startReadLoop()
     }
 
     func disconnect() {
-        inputStream?.close()
-        outputStream?.close()
-        inputStream = nil
-        outputStream = nil
         isOpen = false
+        readTask?.cancel()
+        if readFD >= 0 { close(readFD); readFD = -1 }
+        if writeFD >= 0 { close(writeFD); writeFD = -1 }
+        fileDescriptor = -1
+
+        // Fail all pending requests
+        lock.lock()
+        let waiters = pending
+        pending.removeAll()
+        lock.unlock()
+        for (_, cont) in waiters {
+            cont.resume(throwing: DaemonError.connectionClosed)
+        }
     }
 
-    /// Send a JSON-RPC request and receive the response
+    func setNotificationHandler(_ handler: @escaping (JsonRpcNotification) -> Void) {
+        lock.lock()
+        notificationHandler = handler
+        lock.unlock()
+    }
+
+    /// Send a JSON-RPC request and await the response
     func sendRequest(_ request: JsonRpcRequest) async throws -> JsonRpcResponse {
-        guard isOpen, let output = outputStream else {
-            throw DaemonError.notConnected
+        guard isOpen else { throw DaemonError.notConnected }
+
+        let requestKey: String
+        switch request.id {
+        case .string(let s): requestKey = s
+        case .number(let n): requestKey = String(n)
+        case nil: requestKey = "unknown"
         }
 
+        // Write the request
         let data = try JSONEncoder().encode(request)
         var line = data
         line.append(0x0A) // newline
 
         let written = line.withUnsafeBytes { bytes in
-            output.write(bytes.bindMemory(to: UInt8.self).baseAddress!, maxLength: line.count)
+            Darwin.write(writeFD, bytes.baseAddress!, line.count)
         }
-
         guard written == line.count else {
             throw DaemonError.writeFailed
         }
 
-        return try await readResponse()
-    }
-
-    /// Read the next line (NDJSON) from the stream
-    private func readResponse() async throws -> JsonRpcResponse {
-        guard let input = inputStream else {
-            throw DaemonError.notConnected
-        }
-
-        while true {
-            // Check if we already have a complete line in the buffer
-            if let newlineIndex = buffer.firstIndex(of: 0x0A) {
-                let lineData = buffer[buffer.startIndex..<newlineIndex]
-                buffer = Data(buffer[(newlineIndex + 1)...])
-                let response = try JSONDecoder().decode(JsonRpcResponse.self, from: Data(lineData))
-                return response
-            }
-
-            // Read more data
-            var readBuffer = [UInt8](repeating: 0, count: 4096)
-            let bytesRead = input.read(&readBuffer, maxLength: readBuffer.count)
-            if bytesRead <= 0 {
-                throw DaemonError.connectionClosed
-            }
-            buffer.append(contentsOf: readBuffer[0..<bytesRead])
+        // Wait for the response via continuation
+        return try await withCheckedThrowingContinuation { continuation in
+            lock.lock()
+            pending[requestKey] = continuation
+            lock.unlock()
         }
     }
 
-    /// Read the next notification (non-response) from the stream
-    func readNotification() async throws -> JsonRpcNotification {
-        guard let input = inputStream else {
-            throw DaemonError.notConnected
+    // MARK: - Background read loop
+
+    private func startReadLoop() {
+        readTask = Task.detached { [weak self] in
+            guard let self else { return }
+            var buffer = Data()
+            var readBuffer = [UInt8](repeating: 0, count: 8192)
+
+            while self.isOpen && !Task.isCancelled {
+                let bytesRead = Darwin.read(self.readFD, &readBuffer, readBuffer.count)
+                if bytesRead <= 0 {
+                    // Connection closed or error
+                    self.isOpen = false
+                    self.lock.lock()
+                    let waiters = self.pending
+                    self.pending.removeAll()
+                    self.lock.unlock()
+                    for (_, cont) in waiters {
+                        cont.resume(throwing: DaemonError.connectionClosed)
+                    }
+                    break
+                }
+
+                buffer.append(contentsOf: readBuffer[0..<bytesRead])
+
+                // Process complete lines
+                while let newlineIndex = buffer.firstIndex(of: 0x0A) {
+                    let lineData = Data(buffer[buffer.startIndex..<newlineIndex])
+                    buffer = Data(buffer[(newlineIndex + 1)...])
+
+                    self.dispatchLine(lineData)
+                }
+            }
+        }
+    }
+
+    private func dispatchLine(_ data: Data) {
+        // Try to parse as a response (has "id" field)
+        // or as a notification (has "method" but no "id")
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return
         }
 
-        while true {
-            if let newlineIndex = buffer.firstIndex(of: 0x0A) {
-                let lineData = buffer[buffer.startIndex..<newlineIndex]
-                buffer = Data(buffer[(newlineIndex + 1)...])
-                let notification = try JSONDecoder().decode(JsonRpcNotification.self, from: Data(lineData))
-                return notification
+        if json["id"] != nil {
+            // It's a response — resume the pending continuation
+            if let response = try? JSONDecoder().decode(JsonRpcResponse.self, from: data) {
+                let key: String
+                switch response.id {
+                case .string(let s): key = s
+                case .number(let n): key = String(n)
+                case nil: key = "unknown"
+                }
+                lock.lock()
+                let continuation = pending.removeValue(forKey: key)
+                lock.unlock()
+                continuation?.resume(returning: response)
             }
-
-            var readBuffer = [UInt8](repeating: 0, count: 4096)
-            let bytesRead = input.read(&readBuffer, maxLength: readBuffer.count)
-            if bytesRead <= 0 {
-                throw DaemonError.connectionClosed
+        } else if json["method"] != nil {
+            // It's a notification
+            if let notification = try? JSONDecoder().decode(JsonRpcNotification.self, from: data) {
+                lock.lock()
+                let handler = notificationHandler
+                lock.unlock()
+                handler?(notification)
             }
-            buffer.append(contentsOf: readBuffer[0..<bytesRead])
         }
     }
 

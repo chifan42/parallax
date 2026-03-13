@@ -13,7 +13,6 @@ class DaemonService: ObservableObject {
     @Published var connectionError: String?
 
     private let connection = DaemonConnection()
-    private var notificationTask: Task<Void, Never>?
 
     func connect() async {
         do {
@@ -21,11 +20,16 @@ class DaemonService: ObservableObject {
             isConnected = true
             connectionError = nil
 
+            // Register notification handler
+            connection.setNotificationHandler { [weak self] notification in
+                guard let self else { return }
+                Task { @MainActor in
+                    self.handleNotification(notification)
+                }
+            }
+
             // Initial sync
             await syncState()
-
-            // Start listening for notifications
-            startNotificationListener()
         } catch {
             isConnected = false
             connectionError = error.localizedDescription
@@ -36,9 +40,8 @@ class DaemonService: ObservableObject {
         }
     }
 
-    func disconnect() async {
-        notificationTask?.cancel()
-        await connection.disconnect()
+    func disconnect() {
+        connection.disconnect()
         isConnected = false
     }
 
@@ -215,26 +218,7 @@ class DaemonService: ObservableObject {
         }
     }
 
-    private func startNotificationListener() {
-        notificationTask = Task {
-            while !Task.isCancelled {
-                do {
-                    let notification = try await connection.readNotification()
-                    await handleNotification(notification)
-                } catch {
-                    if !Task.isCancelled {
-                        isConnected = false
-                        // Try to reconnect
-                        try? await Task.sleep(nanoseconds: 2_000_000_000)
-                        await connect()
-                    }
-                    break
-                }
-            }
-        }
-    }
-
-    private func handleNotification(_ notification: JsonRpcNotification) async {
+    private func handleNotification(_ notification: JsonRpcNotification) {
         let params = notification.params ?? [:]
         let dict = params.mapValues { $0.value }
 
