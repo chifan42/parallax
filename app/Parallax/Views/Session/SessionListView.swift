@@ -4,9 +4,55 @@ struct SessionListView: View {
     @EnvironmentObject var daemonService: DaemonService
     let worktreeId: String
     @State private var showingNewSession = false
+    @State private var selectedAgent = ""
+    @State private var taskDescription = ""
 
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
+            // Agent bar
+            if !daemonService.agents.isEmpty {
+                VStack(spacing: 8) {
+                    Picker("Agent", selection: $selectedAgent) {
+                        ForEach(daemonService.agents) { agent in
+                            Text(agent.displayName).tag(agent.id)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+
+                    HStack(spacing: 8) {
+                        TextEditor(text: $taskDescription)
+                            .font(.body)
+                            .frame(height: 60)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color.secondary.opacity(0.3))
+                            )
+                            .overlay(alignment: .topLeading) {
+                                if taskDescription.isEmpty {
+                                    Text("Describe your task...")
+                                        .foregroundStyle(.tertiary)
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 8)
+                                        .allowsHitTesting(false)
+                                }
+                            }
+
+                        Button {
+                            startSession()
+                        } label: {
+                            Image(systemName: "play.fill")
+                                .frame(width: 32, height: 32)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(selectedAgent.isEmpty || taskDescription.isEmpty)
+                    }
+                }
+                .padding()
+
+                Divider()
+            }
+
             // Header
             HStack {
                 if let wt = daemonService.selectedWorktree {
@@ -19,13 +65,9 @@ struct SessionListView: View {
                     }
                 }
                 Spacer()
-                Button {
-                    showingNewSession = true
-                } label: {
-                    Label("New Session", systemImage: "plus")
-                }
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.vertical, 8)
 
             Divider()
 
@@ -34,7 +76,7 @@ struct SessionListView: View {
                 Spacer()
                 Text("No sessions yet")
                     .foregroundStyle(.secondary)
-                Text("Start a new session to begin working with an agent")
+                Text("Choose an agent above and describe your task")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                 Spacer()
@@ -48,8 +90,10 @@ struct SessionListView: View {
                 }
             }
         }
-        .sheet(isPresented: $showingNewSession) {
-            NewSessionSheet(worktreeId: worktreeId)
+        .onAppear {
+            if selectedAgent.isEmpty, let first = daemonService.agents.first {
+                selectedAgent = first.id
+            }
         }
         .task {
             await daemonService.listSessions(worktreeId: worktreeId)
@@ -58,6 +102,25 @@ struct SessionListView: View {
 
     private var filteredSessions: [Session] {
         daemonService.sessions.filter { $0.worktreeId == worktreeId }
+    }
+
+    private func startSession() {
+        let agent = selectedAgent
+        let prompt = taskDescription
+        taskDescription = ""
+        Task {
+            if let session = await daemonService.createSession(
+                worktreeId: worktreeId,
+                agentType: agent
+            ) {
+                if !prompt.isEmpty {
+                    await daemonService.sendPrompt(
+                        sessionId: session.id,
+                        prompt: prompt
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -110,65 +173,6 @@ struct SessionStateBadge: View {
         case "failed": return .red
         case "waiting_input": return .orange
         default: return .secondary
-        }
-    }
-}
-
-struct NewSessionSheet: View {
-    @EnvironmentObject var daemonService: DaemonService
-    @Environment(\.dismiss) private var dismiss
-    let worktreeId: String
-
-    @State private var selectedAgent = ""
-    @State private var taskDescription = ""
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Text("New Session")
-                .font(.headline)
-
-            Picker("Agent", selection: $selectedAgent) {
-                ForEach(daemonService.agents) { agent in
-                    Text(agent.displayName).tag(agent.id)
-                }
-            }
-            .pickerStyle(.menu)
-
-            TextEditor(text: $taskDescription)
-                .frame(height: 100)
-                .border(Color.secondary.opacity(0.3))
-                .font(.body)
-
-            HStack {
-                Button("Cancel") { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-
-                Button("Start") {
-                    Task {
-                        if let session = await daemonService.createSession(
-                            worktreeId: worktreeId,
-                            agentType: selectedAgent
-                        ) {
-                            if !taskDescription.isEmpty {
-                                await daemonService.sendPrompt(
-                                    sessionId: session.id,
-                                    prompt: taskDescription
-                                )
-                            }
-                        }
-                        dismiss()
-                    }
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(selectedAgent.isEmpty)
-            }
-        }
-        .padding()
-        .frame(width: 450)
-        .onAppear {
-            if let first = daemonService.agents.first {
-                selectedAgent = first.id
-            }
         }
     }
 }

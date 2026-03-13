@@ -233,12 +233,28 @@ impl AgentProcessManager {
                         env!("CARGO_PKG_VERSION"),
                     ));
 
-                    if let Err(e) = conn.initialize(init_req).await {
-                        tracing::error!("ACP initialization failed: {e}");
-                        let _ = child.kill().await;
-                        return;
-                    }
+                    let init_resp = match conn.initialize(init_req).await {
+                        Ok(resp) => resp,
+                        Err(e) => {
+                            tracing::error!("ACP initialization failed: {e}");
+                            let _ = child.kill().await;
+                            return;
+                        }
+                    };
                     tracing::info!("ACP initialized for agent {aid}");
+
+                    // Authenticate if the agent requires it
+                    if let Some(method) = init_resp.auth_methods.first() {
+                        let auth_req = acp::AuthenticateRequest::new(method.id().clone());
+                        match conn.authenticate(auth_req).await {
+                            Ok(_) => tracing::info!("authenticated agent {aid} via {}", method.id()),
+                            Err(e) => {
+                                tracing::error!("authentication failed for {aid}: {e}");
+                                let _ = child.kill().await;
+                                return;
+                            }
+                        }
+                    }
 
                     let conn = std::rc::Rc::new(conn);
 

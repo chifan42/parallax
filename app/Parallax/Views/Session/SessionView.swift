@@ -52,10 +52,23 @@ struct SessionView: View {
 
             // Input
             if session.isActive || session.state == "review_required" {
-                HStack {
-                    TextField("Type a message...", text: $promptText)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit { sendPrompt() }
+                HStack(alignment: .bottom, spacing: 8) {
+                    TextEditor(text: $promptText)
+                        .font(.body)
+                        .frame(height: 60)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.secondary.opacity(0.3))
+                        )
+                        .overlay(alignment: .topLeading) {
+                            if promptText.isEmpty {
+                                Text("Type a message...")
+                                    .foregroundStyle(.tertiary)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 8)
+                                    .allowsHitTesting(false)
+                            }
+                        }
 
                     Button("Send") { sendPrompt() }
                         .disabled(promptText.isEmpty)

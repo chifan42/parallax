@@ -7,8 +7,14 @@ struct CreateWorktreeSheet: View {
 
     @State private var branchName = ""
     @State private var sourceBranch = ""
+    @State private var branchSearch = ""
     @State private var branches: [String] = []
     @State private var isLoading = false
+
+    var filteredBranches: [String] {
+        if branchSearch.isEmpty { return branches }
+        return branches.filter { $0.localizedCaseInsensitiveContains(branchSearch) }
+    }
 
     var body: some View {
         VStack(spacing: 16) {
@@ -18,12 +24,28 @@ struct CreateWorktreeSheet: View {
             TextField("Branch name", text: $branchName)
                 .textFieldStyle(.roundedBorder)
 
-            Picker("Source branch", selection: $sourceBranch) {
-                ForEach(branches, id: \.self) { branch in
-                    Text(branch).tag(branch)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Source branch")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                TextField("Search branches...", text: $branchSearch)
+                    .textFieldStyle(.roundedBorder)
+                    .onChange(of: branchSearch) { _, newValue in
+                        // Auto-select exact match
+                        if branches.contains(newValue) {
+                            sourceBranch = newValue
+                        }
+                    }
+
+                List(filteredBranches, id: \.self, selection: $sourceBranch) { branch in
+                    Text(branch)
+                        .font(.system(.body, design: .monospaced))
+                        .tag(branch)
                 }
+                .listStyle(.bordered)
+                .frame(height: 150)
             }
-            .pickerStyle(.menu)
 
             HStack {
                 Button("Cancel") { dismiss() }
@@ -46,11 +68,12 @@ struct CreateWorktreeSheet: View {
             }
         }
         .padding()
-        .frame(width: 350)
+        .frame(width: 400, height: 350)
         .task {
             branches = await daemonService.listBranches(projectId: project.id)
             if let defaultBranch = project.defaultBranch ?? branches.first {
                 sourceBranch = defaultBranch
+                branchSearch = defaultBranch
             }
         }
     }
