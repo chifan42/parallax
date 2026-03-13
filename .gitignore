@@ -1,0 +1,21 @@
+/target
+/build
+**/*.rs.bk
+*.pdb
+.DS_Store
+
+# Swift
+app/Parallax/.build/
+.swiftpm/
+
+# Xcode
+app/Parallax.xcodeproj/xcuserdata/
+app/Parallax.xcodeproj/project.xcworkspace/xcuserdata/
+app/build/
+DerivedData/
+*.xcuserstate
+
+# Database
+*.db
+*.db-wal
+*.db-shm

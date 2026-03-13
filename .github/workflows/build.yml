@@ -1,0 +1,111 @@
+name: Build Parallax
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-daemon:
+    name: Build Daemon (Rust)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Build daemon
+        run: cargo build --release
+
+      - name: Upload daemon binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: parallax-daemon
+          path: target/release/parallax-daemon
+
+  build-app:
+    name: Build App (SwiftUI)
+    runs-on: macos-14
+    needs: build-daemon
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download daemon binary
+        uses: actions/download-artifact@v4
+        with:
+          name: parallax-daemon
+          path: build/daemon
+
+      - name: Build SwiftUI app
+        run: |
+          cd app/Parallax
+          swift build -c release
+
+      - name: Bundle Parallax.app
+        run: |
+          APP=build/Parallax.app
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+
+          cp app/Parallax/.build/release/Parallax "$APP/Contents/MacOS/Parallax"
+          cp build/daemon/parallax-daemon "$APP/Contents/MacOS/parallax-daemon"
+          chmod +x "$APP/Contents/MacOS/parallax-daemon"
+
+          cat > "$APP/Contents/Info.plist" << 'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleName</key>
+              <string>Parallax</string>
+              <key>CFBundleDisplayName</key>
+              <string>Parallax</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.parallax.app</string>
+              <key>CFBundleVersion</key>
+              <string>${{ github.sha }}</string>
+              <key>CFBundleShortVersionString</key>
+              <string>0.1.0</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleExecutable</key>
+              <string>Parallax</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>14.0</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+              <key>LSApplicationCategoryType</key>
+              <string>public.app-category.developer-tools</string>
+          </dict>
+          </plist>
+          PLIST
+
+      - name: Create DMG
+        run: |
+          hdiutil create -volname "Parallax" \
+            -srcfolder build/Parallax.app \
+            -ov -format UDZO \
+            build/Parallax.dmg
+
+      - name: Upload Parallax.app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Parallax.app
+          path: build/Parallax.app
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: Parallax.dmg
+          path: build/Parallax.dmg
