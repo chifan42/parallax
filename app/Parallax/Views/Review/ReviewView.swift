@@ -7,47 +7,76 @@ struct ReviewView: View {
 
     @State private var comments: [Comment] = []
     @State private var showingRerunSheet = false
-    @State private var selectedText = ""
 
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            HStack {
+            HStack(spacing: 12) {
+                Image(systemName: "doc.text.magnifyingglass")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.accent)
                 Text("Review")
-                    .font(.title2.bold())
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.text)
                 Spacer()
+
+                if !comments.isEmpty {
+                    Text("\(comments.count) comments")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.textTertiary)
+                }
+
                 Button {
                     showingRerunSheet = true
                 } label: {
-                    Label("Re-run", systemImage: "arrow.clockwise")
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 11))
+                        Text("Re-run")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundStyle(Theme.accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Theme.accent.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
+                .buttonStyle(.plain)
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Theme.surface)
 
-            Divider()
+            Divider().overlay(Theme.border)
 
             // Content
             ScrollView {
                 Text(roundOutput)
-                    .font(.system(.body, design: .monospaced))
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(Theme.text)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
+                    .padding(16)
                     .textSelection(.enabled)
             }
+            .background(Theme.bg)
 
-            // Comments sidebar
+            // Comments
             if !comments.isEmpty {
-                Divider()
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Comments (\(comments.count))")
-                        .font(.headline)
-                    ForEach(comments) { comment in
-                        CommentRow(comment: comment)
+                Divider().overlay(Theme.border)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(comments) { comment in
+                            CommentRow(comment: comment)
+                        }
                     }
+                    .padding(12)
                 }
-                .padding()
+                .frame(height: 160)
+                .background(Theme.surface)
             }
         }
+        .background(Theme.bg)
         .sheet(isPresented: $showingRerunSheet) {
             RerunSheet(sessionId: sessionId)
         }
@@ -60,16 +89,21 @@ struct CommentRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(comment.quotedText)
-                .font(.caption)
-                .italic()
-                .foregroundStyle(.secondary)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(Theme.textTertiary)
                 .lineLimit(2)
+                .padding(6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.bg)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+
             Text(comment.commentText)
-                .font(.body)
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.text)
         }
         .padding(8)
-        .background(Color.yellow.opacity(0.1))
-        .cornerRadius(6)
+        .background(Theme.surfaceHover)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }
 
@@ -81,23 +115,85 @@ struct RerunSheet: View {
     @State private var additionalNotes = ""
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text("Re-run with Feedback")
-                .font(.headline)
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("Re-run with Feedback")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.text)
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Theme.textTertiary)
+                        .frame(width: 20, height: 20)
+                        .background(Theme.surfaceHover)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(16)
 
-            Text("Comments will be compiled into a feedback prompt for the agent.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Divider().overlay(Theme.border)
 
-            TextEditor(text: $additionalNotes)
-                .frame(height: 80)
-                .border(Color.secondary.opacity(0.3))
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Comments will be compiled into a feedback prompt for the agent.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.textSecondary)
+
+                Text("Additional notes")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.textSecondary)
+
+                ZStack(alignment: .topLeading) {
+                    TextEditor(text: $additionalNotes)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Theme.text)
+                        .scrollContentBackground(.hidden)
+                        .frame(height: 80)
+                        .padding(8)
+                        .background(Theme.bg)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Theme.border)
+                        )
+
+                    if additionalNotes.isEmpty {
+                        Text("Optional: add context for the re-run...")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Theme.textTertiary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 16)
+                            .allowsHitTesting(false)
+                    }
+                }
+            }
+            .padding(16)
+
+            Spacer()
+
+            Divider().overlay(Theme.border)
 
             HStack {
-                Button("Cancel") { dismiss() }
-                    .keyboardShortcut(.cancelAction)
+                Spacer()
 
-                Button("Re-run") {
+                Button {
+                    dismiss()
+                } label: {
+                    Text("Cancel")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(Theme.surfaceHover)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.cancelAction)
+
+                Button {
                     Task {
                         await daemonService.rerunSession(
                             sessionId: sessionId,
@@ -105,11 +201,25 @@ struct RerunSheet: View {
                         )
                         dismiss()
                     }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 11))
+                        Text("Re-run")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(Theme.accent)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
+                .buttonStyle(.plain)
                 .keyboardShortcut(.defaultAction)
             }
+            .padding(16)
         }
-        .padding()
-        .frame(width: 400)
+        .frame(width: 440, height: 300)
+        .background(Theme.surface)
     }
 }
