@@ -5,8 +5,11 @@ import AppKit
 class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
     let daemonService = DaemonService()
+    var daemonProcess: Process?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        startDaemon()
+
         let contentView = ContentView()
             .environmentObject(daemonService)
 
@@ -26,6 +29,37 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        daemonProcess?.terminate()
+    }
+
+    private func startDaemon() {
+        // Find daemon binary next to the app binary
+        let bundle = Bundle.main
+        let daemonPath = bundle.bundleURL
+            .appendingPathComponent("Contents/MacOS/parallax-daemon")
+            .path
+
+        guard FileManager.default.isExecutableFile(atPath: daemonPath) else {
+            print("Daemon not found at \(daemonPath)")
+            return
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: daemonPath)
+        process.environment = ProcessInfo.processInfo.environment
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+
+        do {
+            try process.run()
+            daemonProcess = process
+            print("Daemon started (pid: \(process.processIdentifier))")
+        } catch {
+            print("Failed to start daemon: \(error)")
+        }
     }
 }
 
